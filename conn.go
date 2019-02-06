@@ -9,6 +9,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/athena"
 	"github.com/aws/aws-sdk-go/service/athena/athenaiface"
+	"github.com/segmentio/go-athena/presto"
 )
 
 type conn struct {
@@ -21,7 +22,16 @@ type conn struct {
 
 func (c *conn) QueryContext(ctx context.Context, query string, args []driver.NamedValue) (driver.Rows, error) {
 	if len(args) > 0 {
-		panic("Athena doesn't support prepared statements. Format your own arguments.")
+		params := make([]interface{}, len(args))
+		for i, _ := range args {
+			params[i] = args[i].Value
+		}
+
+		var err error
+		query, err = presto.ValidateAndFormatSql(query, params...)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	rows, err := c.runQuery(ctx, query)
